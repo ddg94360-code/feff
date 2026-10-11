@@ -1,0 +1,31 @@
+{
+  "name": "feff",
+  "version": "0.1.0",
+  "description": "An encoding policy for files: declare which files must be UTF-8 with no BOM, which must keep one, and catch the silent ones that break JSON.parse.",
+  "type": "module",
+  "bin": {
+    "feff": "./bin/feff.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "utf-8",
+    "bom",
+    "encoding",
+    "json",
+    "powershell",
+    "cli",
+    "linter"
+  ],
+  "license": "MIT"
+}
