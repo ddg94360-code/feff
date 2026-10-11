@@ -1,6 +1,6 @@
 {
   "name": "feff-policy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "An encoding policy for files: declare which files must be UTF-8 with no BOM, which must keep one, and catch the silent ones that break JSON.parse.",
   "type": "module",
   "bin": {
