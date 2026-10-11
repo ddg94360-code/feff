@@ -27,5 +27,13 @@
     "cli",
     "linter"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ddg94360-code/feff.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ddg94360-code/feff/issues"
+  },
+  "homepage": "https://github.com/ddg94360-code/feff#readme"
 }
