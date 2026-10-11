@@ -31,7 +31,7 @@ either way" and then enforce it. That is the whole of feff.
 ## Install
 
 ```
-npm install feff
+npm install feff-policy
 ```
 
 Node 18 or newer. No dependencies.
@@ -102,7 +102,7 @@ everything inside it, so `"vendor"` and `"vendor/**"` do the same thing.
 ## CI
 
 ```yaml
-- run: npx feff check
+- run: npx feff-policy check
 ```
 
 `--json` prints a machine-readable list for anything that wants to annotate a
