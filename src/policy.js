@@ -26,17 +26,19 @@ export const DEFAULT_IGNORE = [
   "build/**",
   "coverage/**",
   "*.min.js",
+  "**/*.min.js",
 ];
 
 export const DEFAULT_RULES = [
   { match: ["*.json", "*.jsonc", "*.json5"], encoding: "utf-8", bom: "forbid" },
   { match: ["*.js", "*.mjs", "*.cjs", "*.ts", "*.mts", "*.cts", "*.tsx", "*.jsx"], encoding: "utf-8", bom: "forbid" },
   { match: ["*.md", "*.yml", "*.yaml", "*.toml"], encoding: "utf-8", bom: "forbid" },
-  { match: ["*.ps1", "*.psm1"], encoding: "utf-8", bom: "allow" },
+  { match: ["*.ps1", "*.psm1"], encoding: "any", bom: "allow" },
   { match: ["*.csv"], encoding: "utf-8", bom: "require" },
 ];
 
 const BOM_POLICIES = new Set(["forbid", "require", "allow"]);
+const ENCODINGS = new Set(["utf-8", "any"]);
 
 export function validatePolicy(policy) {
   const errors = [];
@@ -59,8 +61,8 @@ export function validatePolicy(policy) {
     if (!isStringArray(rule.match) || rule.match.length === 0) {
       errors.push(`${where}.match must be a non-empty array of globs`);
     }
-    if (rule.encoding !== "utf-8") {
-      errors.push(`${where}.encoding must be "utf-8" (feff only judges text it can decode)`);
+    if (!ENCODINGS.has(rule.encoding)) {
+      errors.push(`${where}.encoding must be "utf-8" or "any"`);
     }
     if (!BOM_POLICIES.has(rule.bom)) {
       errors.push(`${where}.bom must be "forbid", "require", or "allow"`);
@@ -92,19 +94,21 @@ export function isIgnored(relPath, ignore) {
  * trailing slash. A file ignore matches that one path only.
  */
 function coveredBy(posix, glob) {
-  if (minimatch(posix, glob)) return true;
-  const dir = glob.endsWith("/**") ? glob.slice(0, -3) : glob;
-  if (dir !== glob && (posix === dir || posix.startsWith(`${dir}/`))) return true;
-  if (!dir.includes("*") && !dir.includes("?") && posix.startsWith(`${dir}/`)) return true;
+  const path = posix.toLowerCase();
+  const pattern = glob.toLowerCase();
+  if (minimatch(path, pattern)) return true;
+  const dir = pattern.endsWith("/**") ? pattern.slice(0, -3) : pattern;
+  if (dir !== pattern && (path === dir || path.startsWith(`${dir}/`))) return true;
+  if (!dir.includes("*") && !dir.includes("?") && path.startsWith(`${dir}/`)) return true;
   return false;
 }
 
 /** @returns {object|null} the first rule whose match hits the path */
 export function matchRule(relPath, rules) {
-  const posix = toPosix(relPath);
+  const posix = toPosix(relPath).toLowerCase();
   const base = posix.split("/").pop();
   for (const rule of rules) {
-    if (rule.match.some((glob) => minimatch(base, glob) || minimatch(posix, glob))) return rule;
+    if (rule.match.some((glob) => minimatch(base, glob.toLowerCase()) || minimatch(posix, glob.toLowerCase()))) return rule;
   }
   return null;
 }

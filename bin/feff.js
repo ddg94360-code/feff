@@ -13,13 +13,14 @@ import { inspectBytes } from "../src/bom.js";
 const USAGE = `feff — an encoding policy for files
 
 Usage:
-  feff check [dir] [--json]     report files that break the policy (default)
-  feff fix [dir]                add or remove UTF-8 BOMs to match the policy
-  feff why <file>               explain one file: what it is, and why it fails
-  feff init                     write a starter feff.json in the current directory
+  feff check [path] [--json]        report files that break the policy (default)
+  feff fix [path] [--dry-run]       add or remove UTF-8 BOMs to match the policy
+  feff why <file>                   explain one file: what it is, and why it fails
+  feff init                         write a starter feff.json in the current directory
 
 The policy lives in feff.json. With no feff.json, feff uses its defaults:
-no BOM for source and JSON, a BOM required for CSV, PowerShell scripts exempt.
+no BOM for source and JSON, a BOM required for CSV, PowerShell scripts exempt
+in whatever encoding Windows saved them. Matching ignores case.
 Exit code is 1 when any file fails, 2 when the policy itself is broken.
 `;
 
@@ -57,6 +58,7 @@ async function main(argv) {
 
 async function scan(command, rest) {
   const json = rest.includes("--json");
+  const dryRun = rest.includes("--dry-run");
   const dirArg = rest.find((a) => !a.startsWith("--"));
   const target = path.resolve(dirArg ?? ".");
   const info = await stat(target);
@@ -67,10 +69,14 @@ async function scan(command, rest) {
     return 2;
   }
 
-  const files = info.isDirectory()
-    ? await readTree(root, loaded.policy.ignore)
+  const tree = info.isDirectory() ? await readTree(root, loaded.policy.ignore) : null;
+  const files = tree
+    ? tree.files
     : [{ path: path.relative(root, target).split(path.sep).join("/"), bytes: new Uint8Array(await readFile(target)) }];
   const judged = files.filter((file) => !isIgnored(file.path, loaded.policy.ignore));
+  for (const big of tree?.skipped ?? []) {
+    console.error(`${big.path}: skipped, ${big.bytes} bytes exceeds the 32 MiB limit`);
+  }
   if (command === "check") {
     const findings = checkFiles(judged, loaded.policy);
     if (findings.length === 0) {
@@ -92,12 +98,16 @@ async function scan(command, rest) {
       console.error(`${file.path}: ${result.reason}`);
       refused += 1;
     } else if (result.changed) {
-      await writeFile(path.join(root, ...file.path.split("/")), result.bytes);
-      console.log(`${file.path}: rewritten`);
+      if (dryRun) {
+        console.log(`${file.path}: would rewrite`);
+      } else {
+        await writeFile(path.join(root, ...file.path.split("/")), result.bytes);
+        console.log(`${file.path}: rewritten`);
+      }
       changed += 1;
     }
   }
-  console.log(`feff: ${changed} rewritten, ${refused} left untouched`);
+  console.log(`feff: ${changed} ${dryRun ? "would be rewritten" : "rewritten"}, ${refused} left untouched`);
   return refused > 0 ? 1 : 0;
 }
 
@@ -168,7 +178,7 @@ function starterPolicy() {
     ignore: [],
     rules: [
       { match: ["*.json", "*.js", "*.mjs", "*.cjs", "*.ts", "*.md", "*.yml", "*.yaml"], encoding: "utf-8", bom: "forbid" },
-      { match: ["*.ps1", "*.psm1"], encoding: "utf-8", bom: "allow" },
+      { match: ["*.ps1", "*.psm1"], encoding: "any", bom: "allow" },
       { match: ["*.csv"], encoding: "utf-8", bom: "require" },
     ],
   };

@@ -126,6 +126,24 @@ describe("checking", () => {
     assert.deepEqual(marked, []);
   });
 
+  it("lets the default policy accept a UTF-16 PowerShell script", () => {
+    const policy16 = normalizePolicy({ rules: [{ match: ["*.ps1"], encoding: "any", bom: "allow" }] });
+    const units = Buffer.from("Write-Output 1\n", "utf16le");
+    const bytes = new Uint8Array([0xff, 0xfe, ...units]);
+    assert.deepEqual(checkFiles([{ path: "build.ps1", bytes }], policy16), []);
+  });
+
+  it("matches extensions regardless of case", () => {
+    const findings = checkFiles([{ path: "src/App.JSON", bytes: withBom("{}\n") }], policy);
+    assert.equal(findings.length, 1);
+  });
+
+  it("ignores a minified file in a subdirectory", () => {
+    const minified = normalizePolicy({ rules: [{ match: ["*.js"], encoding: "utf-8", bom: "forbid" }] });
+    const findings = checkFiles([{ path: "vendor/jquery.min.js", bytes: withBom("!function(){}\n") }], minified);
+    assert.deepEqual(findings, []);
+  });
+
   it("refuses to call UTF-16 a valid UTF-8 file", () => {
     const units = Buffer.from("{}\n", "utf16le");
     const bytes = new Uint8Array([0xff, 0xfe, ...units]);
@@ -196,7 +214,7 @@ describe("command line", () => {
       assert.equal((await readFile(path.join(root, "kept.json"))).subarray(0, 3).toString("hex"), "7b7d0a");
       assert.equal((await readFile(path.join(root, "vendor", "left.json"))).subarray(0, 3).toString("hex"), "efbbbf");
       const read = await readTree(root, ["vendor/**"]);
-      assert.deepEqual(read.map((file) => file.path), ["feff.json", "kept.json"]);
+      assert.deepEqual(read.files.map((file) => file.path), ["feff.json", "kept.json"]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -253,6 +271,34 @@ describe("command line", () => {
       await mkdir(path.join(root, "src", "feff.json"));
       const found = await findConfigRoot(path.join(root, "src", "data.json"));
       assert.equal(found, root);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fix --dry-run changes nothing", async () => {
+    const { run } = await import("../bin/feff.js");
+    const root = await mkdtemp(path.join(tmpdir(), "feff-"));
+    try {
+      await writeFile(path.join(root, "kept.json"), withBom("{}\n"));
+      const code = await run(["fix", "--dry-run", root]);
+      assert.equal(code, 0);
+      assert.equal((await readFile(path.join(root, "kept.json"))).subarray(0, 3).toString("hex"), "efbbbf");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a file over 32 MiB instead of reading it", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "feff-"));
+    try {
+      const handle = await (await import("node:fs/promises")).open(path.join(root, "huge.json"), "w");
+      await handle.truncate(32 * 1024 * 1024 + 1);
+      await handle.close();
+      const read = await readTree(root);
+      assert.deepEqual(read.files, []);
+      assert.equal(read.skipped.length, 1);
+      assert.equal(read.skipped[0].path, "huge.json");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

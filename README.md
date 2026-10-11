@@ -47,13 +47,17 @@ feff check . --json
 ```
 
 The defaults: no BOM for source files, JSON, Markdown and YAML; a BOM required
-for CSV (Excel on Windows misreads a BOM-less CSV); PowerShell scripts exempt,
-because the BOM is load-bearing there.
+for CSV (Excel on Windows misreads a BOM-less CSV); PowerShell scripts exempt
+entirely, because Windows PowerShell 5.1 saves them as UTF-16 LE by default and
+the BOM is load-bearing there. Matching ignores case, so `App.JSON` is judged
+like `app.json`. Files over 32 MiB are reported and skipped rather than read.
 
-Rewrite files that can be fixed by adding or removing a UTF-8 BOM:
+Rewrite files that can be fixed by adding or removing a UTF-8 BOM. `--dry-run`
+prints what would change and writes nothing:
 
 ```
 feff fix
+feff fix --dry-run
 ```
 
 feff will not transcode. A UTF-16 file is reported and left untouched, because
@@ -91,9 +95,11 @@ itself is broken.
 }
 ```
 
-`bom` is `forbid`, `require` or `allow`. The first matching rule wins. Globs
-are `*` (one path segment), `**` (any number) and `?`. Files no rule matches
-are not checked, so a `.png` never becomes an error.
+`bom` is `forbid`, `require` or `allow`. `encoding` is `utf-8`, or `any` to
+accept whatever encoding the file is actually in — that is how the PowerShell
+exemption works. The first matching rule wins. Globs are `*` (one path
+segment), `**` (any number) and `?`, and they match case-insensitively. Files
+no rule matches are not checked, so a `.png` never becomes an error.
 
 `ignore` is added on top of the built-in ignores (`node_modules`, `.git`,
 `dist`, `build`, `coverage`). A bare directory name means that directory and

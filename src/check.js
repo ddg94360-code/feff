@@ -29,12 +29,15 @@ function judge(path, rule, inspection) {
   const label = `${rule.match.join(",")} → ${rule.encoding}, bom ${rule.bom}`;
 
   if (inspection.kind === "binary") {
+    if (rule.encoding === "any") return null;
     return error(path, label, "file is not valid UTF-8 (and has no BOM). If it is binary, remove it from the rule's match.");
   }
   if (inspection.kind === "corrupt") {
+    if (rule.encoding === "any") return null;
     return error(path, label, `file starts with a ${inspection.encoding} BOM but the rest is not valid ${inspection.encoding}`);
   }
   if (inspection.kind === "bom" && inspection.encoding !== "utf-8") {
+    if (rule.encoding === "any") return null;
     return error(
       path,
       label,

@@ -14,6 +14,9 @@ const UTF8_BOM = new Uint8Array([0xef, 0xbb, 0xbf]);
  */
 export function fixBytes(buffer, rule) {
   const inspection = inspectBytes(buffer);
+  if (inspection.kind === "binary" || inspection.kind === "corrupt" || inspection.encoding !== "utf-8" && inspection.kind === "bom") {
+    if (rule.encoding === "any") return { changed: false };
+  }
   if (inspection.kind === "binary" || inspection.kind === "corrupt") {
     return { changed: false, reason: "refusing to rewrite a file that is not valid text" };
   }
